@@ -12,16 +12,19 @@ sub new {
     my %args = @_;
 
     my $self = bless {}, $class;
+
     die "Please specify method" unless $args{method};
     die "Invalid method, please choose LIFO/FIFO"
         unless $args{method} =~ /\A(LIFO|FIFO)\z/;
     $self->{method} = delete $args{method};
 
+    $self->{allow_negative_inventory} = delete $args{allow_negative_inventory};
+
     keys(%args) and die "Unknown argument(s): ".join(", ", keys %args);
 
     $self->{_inventory} = [];
-    $self->{_total_units}    = 0;
-    $self->{_avg_unit_price} = undef;
+    $self->{_units} = 0;
+    $self->{_average_purchase_price} = undef;
 
     $self;
 }
@@ -35,14 +38,14 @@ sub buy {
 
     push @{ $self->{_inventory} }, [$units, $unit_price];
     if (@{ $self->{_inventory} } == 1) {
-        $self->{_total_units}    = $units;
-        $self->{_avg_unit_price} = $unit_price;
+        $self->{_units}    = $units;
+        $self->{_average_purchase_price} = $unit_price;
     } else {
-        my $oldtotal = $self->{_total_units};
-        $self->{_total_units}   += $units;
-        $self->{_avg_unit_price} = (
-            $oldtotal * $self->{_avg_unit_price} +
-                $units * $unit_price) / $self->{_total_units};
+        my $oldtotal = $self->{_units};
+        $self->{_units}   += $units;
+        $self->{_average_purchase_price} = (
+            $oldtotal * $self->{_average_purchase_price} +
+                $units * $unit_price) / $self->{_units};
     }
 }
 
@@ -52,8 +55,19 @@ sub sell {
     # sanity checks
     die "Units must be > 0" unless $units > 0;
     die "Unit price must be >= 0" unless $unit_price >= 0;
-    die "Attempted to oversell ($units, while inventory only has ".
-        "$self->{_total_units})" unless $self->{_total_units} >= $units;
+
+    if ($self->{_units} < $units) {
+        if ($self->{allow_negative_inventory}) {
+            $units = $self->{_units};
+        } else {
+            die "Attempted to oversell ($units, while inventory only has ".
+                "$self->{_units})";
+        }
+    }
+
+    my $orig_units = $units;
+    my $orig_average_purchase_price = $self->{_average_purchase_price};
+    my $profit;
 
     while (@{ $self->{_inventory} }) {
         my $item;
@@ -64,12 +78,13 @@ sub sell {
         }
         if ($item->[0] > $units) {
             $item->[0] -= $units;
-            my $oldtotal = $self->{_total_units};
-            $self->{_total_units} -= $units;
-            $self->{_avg_unit_price} = (
-                $oldtotal * $self->{_avg_unit_price} -
-                    $units*$item->[1]) / $self->{_total_units};
-            return;
+            my $oldtotal = $self->{_units};
+            $self->{_units} -= $units;
+            $self->{_average_purchase_price} = (
+                $oldtotal * $self->{_average_purchase_price} -
+                    $units*$item->[1]) / $self->{_units};
+            $profit += $units * ($unit_price - $item->[1]);
+            goto RETURN;
         } else {
             if ($self->{method} eq 'LIFO') {
                 pop @{ $self->{_inventory} };
@@ -77,18 +92,30 @@ sub sell {
                 shift @{ $self->{_inventory} };
             }
             $units -= $item->[0];
-            my $oldtotal = $self->{_total_units};
-            $self->{_total_units} -= $item->[0];
-            if ($self->{_total_units} == 0) {
-                undef $self->{_avg_unit_price};
+            my $oldtotal = $self->{_units};
+            $self->{_units} -= $item->[0];
+            $profit += $item->[0] * ($unit_price - $item->[1]);
+            if ($self->{_units} == 0) {
+                undef $self->{_average_purchase_price};
             } else {
-                $self->{_avg_unit_price} = (
-                    $oldtotal * $self->{_avg_unit_price} -
-                        $item->[0]*$item->[1]) / $self->{_total_units};
+                $self->{_average_purchase_price} = (
+                    $oldtotal * $self->{_average_purchase_price} -
+                        $item->[0]*$item->[1]) / $self->{_units};
             }
-            return if $units == 0;
+            goto RETURN if $units == 0;
         }
     }
+
+  RETURN:
+    my @return;
+    if (defined $orig_average_purchase_price) {
+        push @return, $orig_units *
+            ($unit_price - $orig_average_purchase_price);
+    } else {
+        push @return, undef;
+    }
+    push @return, $profit;
+    @return;
 }
 
 sub inventory {
@@ -96,9 +123,14 @@ sub inventory {
     @{ $self->{_inventory} };
 }
 
-sub summary {
+sub units {
     my $self = shift;
-    ($self->{_total_units}, $self->{_avg_unit_price});
+    $self->{_units};
+}
+
+sub average_purchase_price {
+    my $self = shift;
+    $self->{_average_purchase_price};
 }
 
 
@@ -111,33 +143,40 @@ sub summary {
 
  my $biv = Business::Inventory::Valuation->new(
      method                   => 'LIFO', # required. choose LIFO/FIFO
+     #allow_negative_inventory => 0,     # optional, default 0
  );
 
- my ($units, $avgprice, @inv);
+ my @inv;
 
  # buy: 100 units @1500
  $biv->buy (100, 1500);
  @inv = $biv->inventory;              # => ([100, 1500])
- ($units, $avgprice) = $biv->summary; # => (100, 1500)
+ say $biv->units;                     # 100
+ say $biv->average_purchase_price;    # 1500
 
  # buy more: 150 units @1600
  $biv->buy (150, 1600);
  @inv = $biv->inventory;              # => ([100, 1500], [150, 1600])
- ($units, $avgprice) = $biv->summary; # => (250, 1560)
+ say $biv->units;                     # 250
+ say $biv->average_purchase_price;    # 1560
 
  # sell: 50 units @1700
- $biv->sell( 25, 1700);
+ $biv->sell( 25, 1700);               # returns two versions of realized profit: (7000, 5000)
  @inv = $biv->inventory;              # => ([100, 1500], [100, 1600])
- ($units, $avgprice) = $biv->summary; # => (200, 1550)
+ say $biv->units;                     # 200
+ say $biv->average_purchase_price;    # 1550
 
  # buy: 200 units @1500
  $biv->buy(200, 1500);
  @inv = $biv->inventory;              # => ([100, 1500], [100, 1600], [200, 1500])
- ($units, $avgprice) = $biv->summary; # => (400, 1525)
+ say $biv->units;                     # 400
+ say $biv->average_purchase_price;    # 1550
 
  # sell: 350 units @1800
- $biv->sell(350, 1800);
+ $biv->sell(350, 1800);               # returns two versions of realized profit: (96250, 95000)
  @inv = $biv->inventory;              # => ([50, 1500])
+ say $biv->units;                     # 50
+ say $biv->average_purchase_price;    # 1500
  ($units, $avgprice) = $biv->summary; # => (50, 1500)
 
  # sell: 60 units @1700
@@ -159,32 +198,72 @@ Keywords: average purchase price, inventory valuation, FIFO, LIFO.
 
 Usage: Business::Inventory::Valuation->new(%args) => obj
 
-Known arguments:
+Known arguments (C<*> denotes required argument):
 
 =over
 
-=item * method => str ("LIFO"|"FIFO")
+=item * method* => str ("LIFO"|"FIFO")
+
+=item * allow_negative_inventory => bool (default: 0)
+
+By default, when you try to C<sell()> more amount than you have bought, the
+method will die. When this argument is set to true, the method will not die but
+will simply ignore then excess amount sold (see L</"sell"> for more details).
 
 =back
 
 =head2 buy
 
-Usage: $biv->buy($units, $unit_price)
+Usage: $biv->buy($units, $unit_price) => num
+
+Add units to inventory. Will return average purchase price, which is calculated
+as the weighted average from all purchases.
 
 =head2 sell
 
-Usage: $biv->buy($units, $unit_price)
+Usage: $biv->sell($units, $unit_price) => ($profit1, $profit2)
 
-Will die if C<$units> exceeds the number of units in inventory.
+Take units from inventory. If method is FIFO, will take the units according to
+the order of purchase (units bought earlier will be taken first). If method is
+LIFO, will take the units according to the reverse order of purchase (units
+bought later will be taken first).
 
-=head2 summary
+Will die if C<$units> exceeds the number of units in inventory (overselling),
+unless when C<allow_negative_inventory> constructor argument is set to true (see
+L</"new">) which will just take the inventory up to the amount of inventory and
+set the inventory to zero.
 
-Usage: $biv->summary => ($units, $avg_unit_price)
+C<$unit_price> is the unit selling price.
 
-If inventory is empty, will return C<<(0, undef)>>.
+Will return a list containing two versions of realized profits. The first
+element is profit calculated using average purchase price: C<$unit_price> -
+I<average-purchase-price> x I<units-sold>. The second element is profit
+calculated by the actual purchase price of the taken units.
+
+=head2 units
+
+Usage: $biv->units => num
+
+Return the current number of units in the inventory.
+
+If you want to know each number of units bought at different prices, use
+L</"inventory">.
+
+=head2 average_purchase_price
+
+Usage: $biv->average_purchase_price => num
+
+Return the average purchase price, which is calculated by weighted average.
+
+If there is no inventory, will return undef.
 
 =head2 inventory
 
 Usage: $biv->inventory => @ary
+
+Return the current inventory, which is a list of C<[units, price]> arrays. For
+example if you buy 500 units @10 then buy another 1000 units @12.5,
+C<inventory()> will return: C<< ([500, 10], [1000, 12.5]) >>.
+
 
 =head1 SEE ALSO
