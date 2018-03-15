@@ -61,6 +61,8 @@ sub sell {
     die "Units must be > 0" unless $units > 0;
     die "Unit price must be >= 0" unless $unit_price >= 0;
 
+    my $profit = 0;
+
     if ($self->{_units} < $units) {
         if ($self->{allow_negative_inventory}) {
             $units = $self->{_units};
@@ -72,7 +74,6 @@ sub sell {
 
     my $orig_units = $units;
     my $orig_average_purchase_price = $self->{_average_purchase_price};
-    my $profit;
 
     while (@{ $self->{_inventory} }) {
         my $item;

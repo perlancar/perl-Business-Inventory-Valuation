@@ -14,10 +14,12 @@ subtest "sanity" => sub {
     dies_ok { Business::Inventory::Valuation->new(method => "LIFO", foo=>1) } "unknown argument";
 
     my $biv = Business::Inventory::Valuation->new(method => "LIFO", allow_negative_inventory=>0);
+    dies_ok { $biv->buy( 0, 100) } 'zero buy amount';
     dies_ok { $biv->buy(-1, 100) } 'negative buy amount';
 
     $biv->buy(10, 100);
 
+    dies_ok { $biv->sell( 0, 100) } 'zero sell amount';
     dies_ok { $biv->sell(-1, 100) } 'negative sell amount';
 };
 
@@ -114,6 +116,8 @@ subtest "allow_negative_inventory=1" => sub {
         method => 'LIFO',
         allow_negative_inventory => 1,
     );
+
+    is_deeply([$biv->sell(10, 1500)], [undef, 0]);
 
     $biv->buy(100, 1500);
     is_deeply([$biv->sell(150, 1600)], [10000, 10000]);
