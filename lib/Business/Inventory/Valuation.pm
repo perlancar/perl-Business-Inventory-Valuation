@@ -36,7 +36,12 @@ sub buy {
     die "Units must be > 0" unless $units > 0;
     die "Unit price must be >= 0" unless $unit_price >= 0;
 
-    push @{ $self->{_inventory} }, [$units, $unit_price];
+    if (@{ $self->{_inventory} } && $self->{_inventory}[-1][1] == $unit_price) {
+        $self->{_inventory}[-1][0] += $units;
+    } else {
+        push @{ $self->{_inventory} }, [$units, $unit_price];
+    }
+
     if (@{ $self->{_inventory} } == 1) {
         $self->{_units}    = $units;
         $self->{_average_purchase_price} = $unit_price;
