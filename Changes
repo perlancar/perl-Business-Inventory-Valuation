@@ -1,3 +1,9 @@
+0.003   2018-03-15 (PERLANCAR)
+
+	- [opt] Merge purchases with same price to the last inventory
+	  record.
+
+
 0.002   2018-03-15 (PERLANCAR)
 
 	- [Incompatible change] Remove summary() and replace it with units() and
