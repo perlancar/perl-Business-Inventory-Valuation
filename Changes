@@ -1,3 +1,13 @@
+0.002   2018-03-15 (PERLANCAR)
+
+	- [Incompatible change] Remove summary() and replace it with units() and
+          average_purchase_price().
+
+        - Add argument: allow_negative_inventory.
+
+        - sell() now returns realized profits.
+
+
 0.001   2018-03-09 (PERLANCAR)
 
         - First release.
