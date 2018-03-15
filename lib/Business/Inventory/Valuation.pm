@@ -7,6 +7,8 @@ use 5.010001;
 use strict;
 use warnings;
 
+our $ROUNDING_ERROR_THRESHOLD = 1e-12;
+
 sub new {
     my $class = shift;
     my %args = @_;
@@ -82,8 +84,13 @@ sub sell {
         } else {
             $item = $self->{_inventory}[0];
         }
+
+        # handle rounding error by float operation
+        if (abs($item->[0] - $units) < $ROUNDING_ERROR_THRESHOLD) {
+            $item->[0] = $units;
+        }
+
         if ($item->[0] > $units) {
-            $item->[0] -= $units;
             my $oldtotal = $self->{_units};
             $self->{_units} -= $units;
             $self->{_average_purchase_price} = (
