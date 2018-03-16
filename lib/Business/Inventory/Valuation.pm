@@ -39,20 +39,25 @@ sub buy {
     die "Unit price must be >= 0" unless $unit_price >= 0;
 
     if (@{ $self->{_inventory} } && $self->{_inventory}[-1][1] == $unit_price) {
+        my $old_units = $self->{_units};
         $self->{_inventory}[-1][0] += $units;
+        $self->{_units} += $units;
+        $self->{_average_purchase_price} = (
+            $old_units * $self->{_average_purchase_price} +
+                $units * $unit_price) / $self->{_units};
     } else {
         push @{ $self->{_inventory} }, [$units, $unit_price];
-    }
 
-    if (@{ $self->{_inventory} } == 1) {
-        $self->{_units}    = $units;
-        $self->{_average_purchase_price} = $unit_price;
-    } else {
-        my $oldtotal = $self->{_units};
-        $self->{_units}   += $units;
-        $self->{_average_purchase_price} = (
-            $oldtotal * $self->{_average_purchase_price} +
-                $units * $unit_price) / $self->{_units};
+        if (@{ $self->{_inventory} } == 1) {
+            $self->{_units} = $units;
+            $self->{_average_purchase_price} = $unit_price;
+        } else {
+            my $old_units = $self->{_units};
+            $self->{_units}+= $units;
+            $self->{_average_purchase_price} = (
+                $old_units * $self->{_average_purchase_price} +
+                    $units * $unit_price) / $self->{_units};
+        }
     }
 }
 
@@ -65,7 +70,7 @@ sub sell {
 
     my $profit = 0;
 
-    if ($self->{_units} < $units) {
+   if ($self->{_units} < $units) {
         if ($self->{allow_negative_inventory}) {
             $units = $self->{_units};
         } else {
@@ -74,10 +79,11 @@ sub sell {
         }
     }
 
-    my $orig_units = $units;
+    my $remaining = $units;
     my $orig_average_purchase_price = $self->{_average_purchase_price};
 
-    while (@{ $self->{_inventory} }) {
+    # due to rounding error, _units and _inventory might disagree for a bit
+    while ($self->{_units} > 0 && @{ $self->{_inventory} } && $remaining > 0) {
         my $item;
         if ($self->{method} eq 'LIFO') {
             $item = $self->{_inventory}[-1];
@@ -85,44 +91,46 @@ sub sell {
             $item = $self->{_inventory}[0];
         }
 
-        # handle rounding error by float operation
-        if (abs($item->[0] - $units) < $ROUNDING_ERROR_THRESHOLD) {
-            $item->[0] = $units;
-        }
-
-        if ($item->[0] > $units) {
-            my $oldtotal = $self->{_units};
-            $self->{_units} -= $units;
-            $self->{_average_purchase_price} = (
-                $oldtotal * $self->{_average_purchase_price} -
-                    $units*$item->[1]) / $self->{_units};
-            $profit += $units * ($unit_price - $item->[1]);
+        if ($item->[0] > $remaining) {
+            # inventory item is not used up
+            my $old_units = $self->{_units};
+            $item->[0] -= $remaining;
+            $self->{_units} -= $remaining;
+            if ($self->{_units} == 0) {
+                undef $self->{_average_purchase_price};
+            } else {
+                $self->{_average_purchase_price} = (
+                    $old_units * $self->{_average_purchase_price} -
+                        $remaining * $item->[1]) / $self->{_units};
+            }
+            $profit += $remaining * ($unit_price - $item->[1]);
+            $remaining = 0;
             goto RETURN;
         } else {
+            # inventory item is used up, remove from inventory
             if ($self->{method} eq 'LIFO') {
                 pop @{ $self->{_inventory} };
             } else {
                 shift @{ $self->{_inventory} };
             }
-            $units -= $item->[0];
-            my $oldtotal = $self->{_units};
+            $remaining -= $item->[0];
+            my $old_units = $self->{_units};
             $self->{_units} -= $item->[0];
             $profit += $item->[0] * ($unit_price - $item->[1]);
             if ($self->{_units} == 0) {
                 undef $self->{_average_purchase_price};
             } else {
                 $self->{_average_purchase_price} = (
-                    $oldtotal * $self->{_average_purchase_price} -
-                        $item->[0]*$item->[1]) / $self->{_units};
+                    $old_units * $self->{_average_purchase_price} -
+                        $item->[0] * $item->[1]) / $self->{_units};
             }
-            goto RETURN if $units == 0;
         }
     }
 
   RETURN:
     my @return;
     if (defined $orig_average_purchase_price) {
-        push @return, $orig_units *
+        push @return, $units *
             ($unit_price - $orig_average_purchase_price);
     } else {
         push @return, undef;

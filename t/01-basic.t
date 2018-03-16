@@ -123,6 +123,15 @@ subtest "allow_negative_inventory=1" => sub {
     is_deeply([$biv->sell(150, 1600)], [10000, 10000]);
     is_deeply($biv->units, 0);
     is_deeply($biv->average_purchase_price, undef);
+
+    $biv = Business::Inventory::Valuation->new(
+        method => 'LIFO',
+        allow_negative_inventory=>1,
+    );
+
+    $biv->buy(100, 1500);
+    $biv->buy(100, 1500);
+    is_deeply([$biv->sell(250, 1600)], [20000, 20000]);
 };
 
 subtest "optimization: subsequent buy at the same price will be merged" => sub {
