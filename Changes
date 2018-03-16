@@ -1,3 +1,10 @@
+0.007   2018-03-17 (PERLANCAR)
+
+	- No functional changes.
+
+	- [doc] Update/fix Synopsis.
+
+
 0.006   2018-03-17 (PERLANCAR)
 
 	- sell() returns actual units sold.
