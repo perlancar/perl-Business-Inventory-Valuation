@@ -14,8 +14,8 @@ sub new {
     my $self = bless {}, $class;
 
     die "Please specify method" unless $args{method};
-    die "Invalid method, please choose LIFO/FIFO"
-        unless $args{method} =~ /\A(LIFO|FIFO)\z/;
+    die "Invalid method, please choose LIFO/FIFO/weighted average"
+        unless $args{method} =~ /\A(LIFO|FIFO|weighted average)\z/;
     $self->{method} = delete $args{method};
 
     $self->{allow_negative_inventory} = delete $args{allow_negative_inventory};
@@ -36,26 +36,30 @@ sub buy {
     die "Units must be > 0" unless $units > 0;
     die "Unit price must be >= 0" unless $unit_price >= 0;
 
-    if (@{ $self->{_inventory} } && $self->{_inventory}[-1][1] == $unit_price) {
+    if (!@{ $self->{_inventory} }) {
+        push @{ $self->{_inventory} }, [$units, $unit_price];
+        $self->{_units} = $units;
+        $self->{_average_purchase_price} = $unit_price;
+    } elsif (@{ $self->{_inventory} } && $self->{_inventory}[-1][1] == $unit_price) {
         my $old_units = $self->{_units};
         $self->{_inventory}[-1][0] += $units;
         $self->{_units} += $units;
         $self->{_average_purchase_price} = (
             $old_units * $self->{_average_purchase_price} +
                 $units * $unit_price) / $self->{_units};
+    } elsif ($self->{method} eq 'weighted average') {
+        my $old_units = $self->{_units};
+        $self->{_inventory}[0][0] = $self->{_units} = $self->{_units} + $units;
+        $self->{_inventory}[0][1] = $self->{_average_purchase_price} = (
+            $old_units * $self->{_average_purchase_price} +
+                $units * $unit_price) / $self->{_units};
     } else {
         push @{ $self->{_inventory} }, [$units, $unit_price];
-
-        if (@{ $self->{_inventory} } == 1) {
-            $self->{_units} = $units;
-            $self->{_average_purchase_price} = $unit_price;
-        } else {
-            my $old_units = $self->{_units};
-            $self->{_units}+= $units;
-            $self->{_average_purchase_price} = (
-                $old_units * $self->{_average_purchase_price} +
-                    $units * $unit_price) / $self->{_units};
-        }
+        my $old_units = $self->{_units};
+        $self->{_units}+= $units;
+        $self->{_average_purchase_price} = (
+            $old_units * $self->{_average_purchase_price} +
+                $units * $unit_price) / $self->{_units};
     }
 }
 
@@ -154,7 +158,7 @@ sub average_purchase_price {
 
 
 1;
-# ABSTRACT: Calculate inventory value/unit price (using LIFO or FIFO)
+# ABSTRACT: Calculate inventory value/unit price (using LIFO/FIFO/weighted average)
 
 =head1 SYNOPSIS
 
@@ -211,12 +215,32 @@ With FIFO method, the most anciently purchased units are sold first:
  say $biv->units;                     # 200
  say $biv->average_purchase_price;    # 1575
 
+With C<average weighted> method, each purchase will be pooled into a single
+group with purchase price set to average purchase price:
+
+ my $biv = Business::Inventory::Valuation->new(method => 'weighted average');
+
+ $biv->buy(100, 1500);
+ @inv = $biv->inventory;              # => ([100, 1500])
+ say $biv->units;                     # 100
+ say $biv->average_purchase_price;    # 1500
+
+ $biv->buy(150, 1600);
+ @inv = $biv->inventory;              # => ([250, 1560])
+ say $biv->units;                     # 250
+ say $biv->average_purchase_price;    # 1560
+
+ $biv->sell( 25, 1700);               # returns: (7000, 7000)
+ @inv = $biv->inventory;              # => ([200, 1560])
+ say $biv->units;                     # 200
+ say $biv->average_purchase_price;    # 1560
+
 Overselling is allowed when C<allow_negative_inventory> is set to true. Amount
 sold is set to the available inventory and inventory becomes empty:
 
  my $biv = Business::Inventory::Valuation->new(
      method => 'LIFO',
-     allow_negative_inventory => 1,   # optional, default 0
+     allow_negative_inventory => 1,
  );
  $biv->buy(100, 1500);
  $biv->buy(150, 1600);
@@ -228,11 +252,12 @@ sold is set to the available inventory and inventory becomes empty:
 
 =head1 DESCRIPTION
 
-This module can be used if you want to calculate average purchase price from a
+This class can be used if you want to calculate average purchase price from a
 series of purchases each with different prices (like when buying stocks or
 cryptocurrencies) or want to value your inventory using LIFO/FIFO method.
 
-Keywords: average purchase price, inventory valuation, FIFO, LIFO.
+Keywords: average purchase price, inventory, inventory valuation, cost
+accounting, FIFO, LIFO, weighted average, COGS, cost of goods sold.
 
 
 =head1 METHODS
@@ -245,7 +270,15 @@ Known arguments (C<*> denotes required argument):
 
 =over
 
-=item * method* => str ("LIFO"|"FIFO")
+=item * method* => str ("LIFO"|"FIFO"|"weighted average")
+
+When the method is C<LIFO> or C<FIFO>, the class will keep track of each
+purchase at different prices. Then when there is a selling, the units that are
+most recently purchased (in the case of L<FIFO>) or most anciently purchased (in
+the case of C<LIFO>) will be subtracted first.
+
+When the method is C<weighted average>, each purchase will be mixed into a
+single pool with the purchase price being calculated at average purchase price.
 
 =item * allow_negative_inventory => bool (default: 0)
 
@@ -279,9 +312,15 @@ set the inventory to zero.
 C<$unit_price> is the unit selling price.
 
 Will return a list containing two versions of realized profits. The first
-element is profit calculated using average purchase price: C<$unit_price> -
-I<average-purchase-price> x I<units-sold>. The second element is profit
-calculated by the actual purchase price of the taken units.
+element is profit calculated using weighted average method: (C<$unit_price> -
+I<average-purchase-price>) x I<units-sold>. The second element is profit
+calculated by the actual purchase price of the taken units (in the case of LIFO
+or FIFO). When method is `weighted average', the first element and second
+element will be the same.
+
+To calculate the COGS (cost of goods sold), you can use:
+
+ $units*$unit_price - $profit2
 
 =head2 units
 

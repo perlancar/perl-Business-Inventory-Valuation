@@ -111,6 +111,47 @@ subtest "method=FIFO" => sub {
     dies_ok { $biv->sell(60, 1800) };
 };
 
+subtest "method=weighted average" => sub {
+    my $biv = Business::Inventory::Valuation->new(method => 'weighted average');
+
+    is_deeply([$biv->inventory], []);
+    is_deeply($biv->units, 0);
+    is_deeply($biv->average_purchase_price, undef);
+
+    # buy: 100 units @1500
+    $biv->buy(100, 1500);
+    is_deeply([$biv->inventory], [[100, 1500]]);
+    is_deeply($biv->units, 100);
+    is_deeply($biv->average_purchase_price, 1500);
+
+    # buy more: 150 units @1600
+    $biv->buy(150, 1600);
+    is_deeply([$biv->inventory], [[250, 1560]]);
+    is_deeply($biv->units, 250);
+    is_deeply($biv->average_purchase_price, 1560);
+
+    # sell: 50 units @1700
+    is_deeply([$biv->sell( 50, 1700)], [7000, 7000]);
+    is_deeply([$biv->inventory], [[200, 1560]]);
+    is_deeply($biv->units, 200);
+    is_deeply($biv->average_purchase_price, 1560);
+
+    # buy: 200 units @1500
+    $biv->buy(200, 1800);
+    is_deeply([$biv->inventory], [[400, 1680]]);
+    is_deeply($biv->units, 400);
+    is_deeply($biv->average_purchase_price, 1680);
+
+    # sell: 350 units @1800
+    is_deeply([$biv->sell(350, 1900)], [77000, 77000]);
+    is_deeply([$biv->inventory], [[50, 1680]]);
+    is_deeply($biv->units, 50);
+    is_deeply($biv->average_purchase_price, 1680);
+
+    # sell: 60 units @1700
+    dies_ok { $biv->sell(60, 1800) };
+};
+
 subtest "allow_negative_inventory=1" => sub {
     my $biv = Business::Inventory::Valuation->new(
         method => 'LIFO',
