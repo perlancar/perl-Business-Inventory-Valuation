@@ -169,7 +169,7 @@ sub average_purchase_price {
  use Business::Inventory::Valuation;
 
  my $biv = Business::Inventory::Valuation->new(
-     method                   => 'LIFO', # required. choose LIFO/FIFO
+     method                   => 'LIFO', # required. choose LIFO/FIFO/weighted average
      #allow_negative_inventory => 0,     # optional, default 0
  );
 
