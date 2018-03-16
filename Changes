@@ -1,3 +1,8 @@
+0.006   2018-03-17 (PERLANCAR)
+
+	- sell() returns actual units sold.
+
+
 0.005   2018-03-16 (PERLANCAR)
 
         - Add cost accounting method 'weighted average'.
