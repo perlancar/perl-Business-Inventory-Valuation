@@ -168,18 +168,18 @@ sub average_purchase_price {
  my @inv;
 
  # buy: 100 units @1500
- $biv->buy (100, 1500);
+ $biv->buy(100, 1500);
  @inv = $biv->inventory;              # => ([100, 1500])
  say $biv->units;                     # 100
  say $biv->average_purchase_price;    # 1500
 
  # buy more: 150 units @1600
- $biv->buy (150, 1600);
+ $biv->buy(150, 1600);
  @inv = $biv->inventory;              # => ([100, 1500], [150, 1600])
  say $biv->units;                     # 250
  say $biv->average_purchase_price;    # 1560
 
- # sell: 50 units @1700
+ # sell: 50 units @1700. with LIFO method, the most recently purchased units are sold first.
  $biv->sell( 25, 1700);               # returns two versions of realized profit: (7000, 5000)
  @inv = $biv->inventory;              # => ([100, 1500], [100, 1600])
  say $biv->units;                     # 200
@@ -200,6 +200,30 @@ sub average_purchase_price {
 
  # sell: 60 units @1700
  $biv->sell(60, 1800);                # dies! tried to oversell more than available in inventory.
+
+With FIFO method, the most anciently purchased units are sold first:
+
+ my $biv = Business::Inventory::Valuation->new(method => 'FIFO');
+ $biv->buy(100, 1500);
+ $biv->buy(150, 1600);
+ $biv->sell( 25, 1700);               # returns two versions of realized profit: (7000, 10000)
+ @inv = $biv->inventory;              # => ([50, 1500], [150, 1600])
+ say $biv->units;                     # 200
+ say $biv->average_purchase_price;    # 1575
+
+Overselling is allowed when C<allow_negative_inventory> is set to true. Amount
+sold is set to the available inventory and inventory becomes empty:
+
+ my $biv = Business::Inventory::Valuation->new(
+     method => 'LIFO',
+     allow_negative_inventory => 1,   # optional, default 0
+ );
+ $biv->buy(100, 1500);
+ $biv->buy(150, 1600);
+ $biv->sell(300, 1700);               # returns two versions of realized profit: (35000, 35000)
+ @inv = $biv->inventory;              # => ()
+ say $biv->units;                     # 0
+ say $biv->average_purchase_price;    # undef
 
 
 =head1 DESCRIPTION
