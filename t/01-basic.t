@@ -61,7 +61,7 @@ subtest "method=LIFO" => sub {
     is_deeply($biv->average_purchase_price, 1500);
 
     # oversell: 60 units @1700
-    dies_ok { $biv->sell(60, 1800) };
+    dies_ok { $biv->sell(60, 1700) };
 
     # sell remaining
     is_deeply([$biv->sell(50, 1750)], [12500, 12500, 50]);
@@ -101,14 +101,14 @@ subtest "method=FIFO" => sub {
     is_deeply($biv->units, 400);
     is_deeply($biv->average_purchase_price, 1687.5);
 
-    # sell: 350 units @1800
+    # sell: 350 units @1900
     is_deeply([$biv->sell(350, 1900)], [74375, 80000, 350]);
     is_deeply([$biv->inventory], [[50, 1800]]);
     is_deeply($biv->units, 50);
     is_deeply($biv->average_purchase_price, 1800);
 
     # sell: 60 units @1700
-    dies_ok { $biv->sell(60, 1800) };
+    dies_ok { $biv->sell(60, 1700) };
 
     # sell remaining
     is_deeply([$biv->sell(50, 1750)], [-2500, -2500, 50]);
@@ -155,7 +155,7 @@ subtest "method=weighted average" => sub {
     is_deeply($biv->average_purchase_price, 1680);
 
     # sell: 60 units @1700
-    dies_ok { $biv->sell(60, 1800) };
+    dies_ok { $biv->sell(60, 1700) };
 
     # sell remaining
     is_deeply([$biv->sell(50, 1750)], [3500, 3500, 50]);

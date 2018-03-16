@@ -188,7 +188,7 @@ sub average_purchase_price {
  say $biv->average_purchase_price;    # 1560
 
  # sell: 50 units @1700. with LIFO method, the most recently purchased units are sold first.
- $biv->sell( 25, 1700);               # returns two versions of realized profit: (7000, 5000)
+ $biv->sell( 50, 1700);               # returns two versions of realized profit & actual units sold: (7000, 5000, 50)
  @inv = $biv->inventory;              # => ([100, 1500], [100, 1600])
  say $biv->units;                     # 200
  say $biv->average_purchase_price;    # 1550
@@ -200,26 +200,26 @@ sub average_purchase_price {
  say $biv->average_purchase_price;    # 1550
 
  # sell: 350 units @1800
- $biv->sell(350, 1800);               # returns two versions of realized profit: (96250, 95000)
+ $biv->sell(350, 1800);               # returns two versions of realized profit & actual units sold: (96250, 95000, 350)
  @inv = $biv->inventory;              # => ([50, 1500])
  say $biv->units;                     # 50
  say $biv->average_purchase_price;    # 1500
  ($units, $avgprice) = $biv->summary; # => (50, 1500)
 
  # sell: 60 units @1700
- $biv->sell(60, 1800);                # dies! tried to oversell more than available in inventory.
+ $biv->sell(60, 1700);                # dies! tried to oversell more than available in inventory.
 
 With FIFO method, the most anciently purchased units are sold first:
 
  my $biv = Business::Inventory::Valuation->new(method => 'FIFO');
  $biv->buy(100, 1500);
  $biv->buy(150, 1600);
- $biv->sell( 25, 1700);               # returns two versions of realized profit: (7000, 10000)
+ $biv->sell(50, 1700);                # returns two versions of realized profit & actual units sold: (7000, 10000, 50)
  @inv = $biv->inventory;              # => ([50, 1500], [150, 1600])
  say $biv->units;                     # 200
  say $biv->average_purchase_price;    # 1575
 
-With C<average weighted> method, each purchase will be pooled into a single
+With C<weighted average> method, each purchase will be pooled into a single
 group with purchase price set to average purchase price:
 
  my $biv = Business::Inventory::Valuation->new(method => 'weighted average');
@@ -234,7 +234,7 @@ group with purchase price set to average purchase price:
  say $biv->units;                     # 250
  say $biv->average_purchase_price;    # 1560
 
- $biv->sell( 25, 1700);               # returns: (7000, 7000)
+ $biv->sell( 50, 1700);               # returns: (7000, 7000, 50)
  @inv = $biv->inventory;              # => ([200, 1560])
  say $biv->units;                     # 200
  say $biv->average_purchase_price;    # 1560
@@ -248,7 +248,7 @@ sold is set to the available inventory and inventory becomes empty:
  );
  $biv->buy(100, 1500);
  $biv->buy(150, 1600);
- $biv->sell(300, 1700);               # returns two versions of realized profit: (35000, 35000)
+ $biv->sell(300, 1700);               # returns two versions of realized profit & actual units sold: (35000, 35000, 250)
  @inv = $biv->inventory;              # => ()
  say $biv->units;                     # 0
  say $biv->average_purchase_price;    # undef
