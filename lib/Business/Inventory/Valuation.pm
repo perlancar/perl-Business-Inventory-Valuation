@@ -71,8 +71,9 @@ sub sell {
     die "Unit price must be >= 0" unless $unit_price >= 0;
 
     my $profit = 0;
+    my $units_sold = 0;
 
-   if ($self->{_units} < $units) {
+    if ($self->{_units} < $units) {
         if ($self->{allow_negative_inventory}) {
             $units = $self->{_units};
         } else {
@@ -106,6 +107,7 @@ sub sell {
                         $remaining * $item->[1]) / $self->{_units};
             }
             $profit += $remaining * ($unit_price - $item->[1]);
+            $units_sold += $remaining;
             $remaining = 0;
             goto RETURN;
         } else {
@@ -115,6 +117,7 @@ sub sell {
             } else {
                 shift @{ $self->{_inventory} };
             }
+            $units_sold += $item->[0];
             $remaining -= $item->[0];
             my $old_units = $self->{_units};
             $self->{_units} -= $item->[0];
@@ -138,6 +141,7 @@ sub sell {
         push @return, undef;
     }
     push @return, $profit;
+    push @return, $units_sold;
     @return;
 }
 
@@ -297,7 +301,7 @@ as the weighted average from all purchases.
 
 =head2 sell
 
-Usage: $biv->sell($units, $unit_price) => ($profit1, $profit2)
+Usage: $biv->sell($units, $unit_price) => ($profit1, $profit2, $actual_units_sold)
 
 Take units from inventory. If method is FIFO, will take the units according to
 the order of purchase (units bought earlier will be taken first). If method is
@@ -311,12 +315,14 @@ set the inventory to zero.
 
 C<$unit_price> is the unit selling price.
 
-Will return a list containing two versions of realized profits. The first
-element is profit calculated using weighted average method: (C<$unit_price> -
-I<average-purchase-price>) x I<units-sold>. The second element is profit
-calculated by the actual purchase price of the taken units (in the case of LIFO
-or FIFO). When method is `weighted average', the first element and second
-element will be the same.
+Will return a list containing two versions of realized profits as well actual
+units sold. The first element is profit calculated using weighted average
+method: (C<$unit_price> - I<average-purchase-price>) x I<units-sold>. The second
+element is profit calculated by the actual purchase price of the taken units (in
+the case of LIFO or FIFO). When method is `weighted average', the first element
+and second element will be the same. Actual units sold can be different from
+C<$units> if there is overselling, since we subtract only with the available
+units in inventory.
 
 To calculate the COGS (cost of goods sold), you can use:
 
