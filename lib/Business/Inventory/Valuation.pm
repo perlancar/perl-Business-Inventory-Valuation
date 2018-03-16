@@ -199,7 +199,7 @@ sub average_purchase_price {
  ($units, $avgprice) = $biv->summary; # => (50, 1500)
 
  # sell: 60 units @1700
- $biv->sell(60, 1800);                # dies!
+ $biv->sell(60, 1800);                # dies! tried to oversell more than available in inventory.
 
 
 =head1 DESCRIPTION
