@@ -258,7 +258,8 @@ sold is set to the available inventory and inventory becomes empty:
 
 This class can be used if you want to calculate average purchase price from a
 series of purchases each with different prices (like when buying stocks or
-cryptocurrencies) or want to value your inventory using LIFO/FIFO method.
+cryptocurrencies) or want to value your inventory using LIFO/FIFO/weighted
+average method.
 
 Keywords: average purchase price, inventory, inventory valuation, cost
 accounting, FIFO, LIFO, weighted average, COGS, cost of goods sold.
