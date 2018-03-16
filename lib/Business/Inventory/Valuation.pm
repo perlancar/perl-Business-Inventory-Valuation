@@ -316,7 +316,7 @@ set the inventory to zero.
 
 C<$unit_price> is the unit selling price.
 
-Will return a list containing two versions of realized profits as well actual
+Will return a list containing two versions of realized profits as well as actual
 units sold. The first element is profit calculated using weighted average
 method: (C<$unit_price> - I<average-purchase-price>) x I<units-sold>. The second
 element is profit calculated by the actual purchase price of the taken units (in
