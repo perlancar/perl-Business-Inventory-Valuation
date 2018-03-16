@@ -7,8 +7,6 @@ use 5.010001;
 use strict;
 use warnings;
 
-our $ROUNDING_ERROR_THRESHOLD = 1e-12;
-
 sub new {
     my $class = shift;
     my %args = @_;

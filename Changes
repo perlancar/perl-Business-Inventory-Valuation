@@ -1,3 +1,8 @@
+0.004   2018-03-16 (PERLANCAR)
+
+	- [Bugfix] Fix regression bug introduced by the last optimization.
+
+
 0.003   2018-03-15 (PERLANCAR)
 
 	- [opt] Merge purchases with same price to the last inventory
